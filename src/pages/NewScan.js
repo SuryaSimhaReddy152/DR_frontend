@@ -2,12 +2,23 @@ import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 
+// Component to display inline validation errors
+const ValidationError = ({ message }) => {
+    return message ? (
+        <p style={{ color: 'var(--danger)', fontSize: '12px', marginTop: '-10px', marginBottom: '10px' }}>
+            {message}
+        </p>
+    ) : null;
+};
+
 function NewScan() {
   const [formData, setFormData] = useState({ name: '', age: '', gender: 'Male', phone: '' });
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [globalError, setGlobalError] = useState(''); // For server or file errors
+  const [fieldErrors, setFieldErrors] = useState({}); // For inline field errors
 
   // Drag & Drop Logic
   const { getRootProps, getInputProps } = useDropzone({
@@ -16,17 +27,58 @@ function NewScan() {
       const f = acceptedFiles[0];
       setFile(f);
       setPreview(URL.createObjectURL(f));
-      setResult(null); // Reset result on new upload
+      setResult(null); 
+      setGlobalError('');
     }
   });
 
+  // --- VALIDATION HANDLERS ---
+  const validateFields = () => {
+    let errors = {};
+    let isValid = true;
+
+    if (!formData.name) {
+        errors.name = "Full Name is required.";
+        isValid = false;
+    }
+    if (!formData.age || parseInt(formData.age) <= 0) {
+        errors.age = "Age must be a positive number.";
+        isValid = false;
+    }
+    if (!formData.phone || formData.phone.length !== 10 || isNaN(formData.phone)) {
+        errors.phone = "Phone number must be exactly 10 digits.";
+        isValid = false;
+    }
+    if (!file) {
+        errors.file = "A retinal scan image must be uploaded.";
+        isValid = false;
+    }
+
+    setFieldErrors(errors);
+    return isValid;
+  };
+  
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    // Clear the error for the field being typed into
+    if (fieldErrors[name]) {
+        setFieldErrors({ ...fieldErrors, [name]: '' });
+    }
+  };
+  // --- END VALIDATION HANDLERS ---
+
   // Handle Submit to Backends
   const handleAnalyze = async () => {
-    if (!file || !formData.name) return alert("Please fill details and upload image");
-
+    setGlobalError('');
+    setResult(null);
     setLoading(true);
-    setResult(null); // Clear previous results while loading
-    
+
+    if (!validateFields()) {
+      setLoading(false);
+      return setGlobalError("Please correct the errors in the patient vitals section.");
+    }
+
     // URL points to Node.js Backend (Port 5000)
     const backendUrl = "http://localhost:5000/api/scan"; 
     
@@ -48,12 +100,15 @@ function NewScan() {
     } catch (err) {
       console.error("❌ Error:", err);
       
-      // Check for 409 Conflict error from the backend (Unique Patient Check)
-      if (err.response && err.response.status === 409) {
-          alert(err.response.data.error); 
-      } else {
-          alert("Error connecting to server or analysis failed.");
+      let errorMessage = "Error connecting to server or analysis failed.";
+      
+      // Server errors (409 Duplicate, 400 Validation, 500 AI Pipeline failure)
+      if (err.response) {
+          errorMessage = err.response.data.error || errorMessage;
       }
+      
+      setGlobalError(errorMessage);
+      
     } finally {
       setLoading(false);
     }
@@ -74,17 +129,63 @@ function NewScan() {
       {/* LEFT: FORM */}
       <div className="card" style={{ flex: 1 }}>
         <h3>Patient Vitals</h3>
-        <input className="input-field" placeholder="Full Name" onChange={e => setFormData({...formData, name: e.target.value})} />
+        
+        {/* GLOBAL ERROR DISPLAY */}
+        {globalError && (
+            <div style={{ color: 'white', background: 'var(--danger)', padding: '10px', borderRadius: '5px', marginBottom: '15px', textAlign: 'center' }}>
+                {globalError}
+            </div>
+        )}
+        
+        {/* Full Name Input */}
+        <input 
+            className="input-field" 
+            name="name"
+            placeholder="Full Name" 
+            onChange={handleInputChange} 
+            value={formData.name}
+        />
+        <ValidationError message={fieldErrors.name} />
+
+        {/* Age and Gender Row */}
         <div className="flex gap-4">
-          <input className="input-field" placeholder="Age" type="number" onChange={e => setFormData({...formData, age: e.target.value})} />
-          <select className="input-field" onChange={e => setFormData({...formData, gender: e.target.value})}>
+          <input 
+            className="input-field" 
+            name="age"
+            placeholder="Age" 
+            type="number" 
+            min="1"
+            onChange={handleInputChange} 
+            value={formData.age}
+            style={{ flex: 1 }}
+          />
+          <select 
+            className="input-field" 
+            name="gender"
+            onChange={handleInputChange}
+            value={formData.gender}
+            style={{ flex: 1 }}
+          >
             <option>Male</option>
             <option>Female</option>
             <option>Other</option>
           </select>
         </div>
-        <input className="input-field" placeholder="Phone Number" onChange={e => setFormData({...formData, phone: e.target.value})} />
+        <ValidationError message={fieldErrors.age} />
         
+        {/* Phone Number Input */}
+        <input 
+            className="input-field" 
+            name="phone"
+            placeholder="Phone Number (10 digits)" 
+            type="tel"
+            maxLength="10"
+            onChange={handleInputChange} 
+            value={formData.phone}
+        />
+        <ValidationError message={fieldErrors.phone} />
+        
+        {/* Image Dropzone */}
         <div style={{ marginTop: 20 }}>
           <div {...getRootProps({ className: 'dropzone' })}>
             <input {...getInputProps()} />
@@ -94,6 +195,7 @@ function NewScan() {
               <p>Drag & drop Retinal Scan here</p>
             )}
           </div>
+          <ValidationError message={fieldErrors.file} />
         </div>
 
         <button 
@@ -121,8 +223,7 @@ function NewScan() {
             </div>
             
             <h2 style={{ marginTop: 10 }}>{result.diagnosis}</h2>
-            <p style={{ color: '#64748b' }}>Confidence: {result.confidence.toFixed(1)}%</p>
-
+            
           </div>
 
           <div style={{ marginTop: 20, textAlign: 'center' }}>

@@ -58,7 +58,8 @@ function History() {
     doc.text(`Patient: ${patient.name}`, 20, 30);
     doc.text(`Diagnosis: ${patient.diagnosis}`, 20, 40);
     doc.text(`Severity: Stage ${patient.severity}`, 20, 50);
-    doc.text(`Confidence: ${patient.confidence.toFixed(2)}%`, 20, 60);
+    // Confidence removed from PDF generation
+    // doc.text(`Confidence: ${patient.confidence.toFixed(2)}%`, 20, 60); 
     doc.save(`${patient.name}_Report.pdf`);
   };
 
@@ -168,7 +169,7 @@ function History() {
         </table>
       </div>
 
-      {/* MODAL */}
+      {/* MODAL (Confidence removed from display) */}
       {selectedPatient && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
@@ -201,7 +202,7 @@ function History() {
                         <h3 style={{ margin: 0, color: getSeverityColor(selectedPatient.severity) }}>
                             {selectedPatient.diagnosis}
                         </h3>
-                        <p>Confidence: {selectedPatient.confidence.toFixed(1)}%</p>
+                        {/* REMOVED CONFIDENCE LINE: <p>Confidence: {selectedPatient.confidence.toFixed(1)}%</p> */}
                     </div>
                     <button className="btn btn-primary w-full" style={{ marginTop: 10 }} onClick={() => generatePDF(selectedPatient)}>
                         <FaFilePdf style={{ marginRight: 8 }} /> Download Report

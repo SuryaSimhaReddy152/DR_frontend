@@ -87,11 +87,17 @@ body {
 .btn-primary:hover { opacity: 0.9; }
 
 .input-field {
-  width: 100%;
+
+  width: 94%; 
+  
+  /* Add margin to the right */
+  margin-right: 10%; 
+
+  /* Existing styles */
   padding: 12px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 16px; 
   font-size: 14px;
 }
 
